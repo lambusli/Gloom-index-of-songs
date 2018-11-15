@@ -19,62 +19,57 @@ const cht_gloom  = SVG.append("g").attr("id", "gloom_index");
 const cht_val = SVG.append("g").attr("id", "valence");
 const cht_pctsad = SVG.append("g").attr("id", "pct_sad");
 
+const CHARTS = {
+    "gloom_index": cht_gloom,
+    "valence": cht_val,
+    "pct_sad": cht_pctsad
+}
+
 cht_gloom.attr("transfrom", `translate(${margin.left}, ${margin.top})`);
 
 d3.csv(URL).then(function(data){
+
     console.log(data);
-    const x_scale = d3.scaleLinear()
-      .domain([d3.min(data, (d) => d["gloom_index"]), d3.max(data, (d) => d["gloom_index"])])
-      .range([0, WIDTH]);
 
-    const y_scale = d3.scaleLinear()
-      .range([HEIGHT, 0]);
+    function appendChart(colName) {
+        const x_scale = d3.scaleLinear()
+          .domain([d3.min(data, (d) => d[colName]), d3.max(data, (d) => d[colName])])
+          .range([0, WIDTH]);
 
-    var histogram = d3.histogram()
-      .value((d) => d["gloom_index"])
-      .domain(x_scale.domain())
-      //.thresholds(x_scale.ticks(20));
+        const y_scale = d3.scaleLinear()
+          .range([HEIGHT, 0]);
 
-    var bins = histogram(data);
-    console.log(bins);
+        const color_scale = d3.scaleLinear()
+          .range(['#91C4F2', '#020303'])
+          .domain([d3.min(data, (d) => d[colName]), d3.max(data, (d) => d[colName])]);
 
-    y_scale.domain([0, d3.max(bins, (d)=> d.length)]);
+        var histogram = d3.histogram()
+          .value((d) => d[colName])
+          .domain(x_scale.domain())
+          //.thresholds(x_scale.ticks(20));
 
-    col_gloom = cht_gloom.selectAll(".col_gloom") // column of circles
-      .data(bins)
-      .enter()
-      .append("g")
-      .classed("col_gloom", true)
-      .attr("transform", (d) => `translate(${x_scale(d.x0)}, 0)`);
+        var bins = histogram(data);
+        console.log(bins);
 
-    col_gloom.selectAll("circle")
-      .data((d) => d)
-      .enter()
-      .append("circle")
-      .attr("cx", WIDTH / bins.length / 2)
-      .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
-      .attr("r", WIDTH / bins.length / 5)
+        y_scale.domain([0, d3.max(bins, (d)=> d.length)]);
 
+        var col = CHARTS[colName].selectAll(".col_" + colName) // column of circles
+          .data(bins)
+          .enter()
+          .append("g")
+          .classed(".col_" + colName, true)
+          .attr("transform", (d) => `translate(${x_scale(d.x0)}, 0)`);
 
+        col.selectAll("circle")
+          .data((d) => d)
+          .enter()
+          .append("circle")
+          .attr("cx", WIDTH / bins.length / 2)
+          .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
+          .attr("r", WIDTH / bins.length / 5)
+          .attr("fill", (d, i) => color_scale(d[colName]));
+    }
 
+    appendChart("pct_sad"); 
 
-    /*
-    cht_gloom.selectAll("rect")
-      .data(bins)
-      .enter()
-      .append("rect")
-      .attr("x", (d, i) => x_scale(d.x0))
-      .attr("y", (d) => y_scale(d.length))
-      .attr("height", (d) => HEIGHT - y_scale(d.length))
-      .attr("width", WIDTH / bins.length)
-      .style("fill", "black")
-      .style("padding", 0);
-
-    cht_gloom.selectAll("text")
-      .data(bins)
-      .enter()
-      .append("text")
-      .attr("x", (d, i) => i * 10)
-      .attr("y", 550)
-      .text((d) => d.length)*/
 });
