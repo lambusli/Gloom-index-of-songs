@@ -40,6 +40,25 @@ d3.csv(URL).then(function(data){
 
     y_scale.domain([0, d3.max(bins, (d)=> d.length)]);
 
+    col_gloom = cht_gloom.selectAll(".col_gloom") // column of circles
+      .data(bins)
+      .enter()
+      .append("g")
+      .classed("col_gloom", true)
+      .attr("transform", (d) => `translate(${x_scale(d.x0)}, 0)`);
+
+    col_gloom.selectAll("circle")
+      .data((d) => d)
+      .enter()
+      .append("circle")
+      .attr("cx", WIDTH / bins.length / 2)
+      .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
+      .attr("r", WIDTH / bins.length / 5)
+
+
+
+
+    /*
     cht_gloom.selectAll("rect")
       .data(bins)
       .enter()
@@ -57,5 +76,5 @@ d3.csv(URL).then(function(data){
       .append("text")
       .attr("x", (d, i) => i * 10)
       .attr("y", 550)
-      .text((d) => d.length)
+      .text((d) => d.length)*/
 });
