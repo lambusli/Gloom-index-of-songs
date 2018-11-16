@@ -1,23 +1,23 @@
 const URL = "http://www.cs.middlebury.edu/~candrews/classes/cs465-f18/data/gloom_index.csv";
 const SVG = d3.select('#vis');
 
-const WIDTH = 500;
-const HEIGHT = 500;
+const WIDTH = 200;
+const HEIGHT = 200;
 
 const margin = {
   top: 10,
   right: 30,
-  left: 20,
+  left: 40,
   bottom: 20
 }
 
-SVG.attr("width", WIDTH + margin.left + margin.right)
-  .attr("height", HEIGHT + margin.top + margin.bottom);
+SVG.attr("width", 1000)
+  .attr("height", 1000);
 
 // gloom_index, valence, and pct_sad
-const cht_gloom  = SVG.append("g").attr("id", "gloom_index");
-const cht_val = SVG.append("g").attr("id", "valence");
-const cht_pctsad = SVG.append("g").attr("id", "pct_sad");
+const cht_gloom  = SVG.append("g").attr("id", "gloom_index").attr("transform", `translate(${margin.left}, ${margin.top})`);
+const cht_val = SVG.append("g").attr("id", "valence").attr("transform", `translate(${WIDTH + 2 * margin.left}, ${margin.top})`);
+const cht_pctsad = SVG.append("g").attr("id", "pct_sad").attr("transform", `translate(${2 * WIDTH + 3 * margin.left}, ${margin.top})`);
 
 const CHARTS = {
     "gloom_index": cht_gloom,
@@ -29,9 +29,13 @@ cht_gloom.attr("transfrom", `translate(${margin.left}, ${margin.top})`);
 
 d3.csv(URL).then(function(data){
 
+
     console.log(data);
 
     function appendChart(colName) {
+        // create the brush
+        const brush = d3.brushX().extent([[0,0], [WIDTH, HEIGHT]]);
+
         const x_scale = d3.scaleLinear()
           .domain([d3.min(data, (d) => d[colName]), d3.max(data, (d) => d[colName])])
           .range([0, WIDTH]);
@@ -46,7 +50,7 @@ d3.csv(URL).then(function(data){
         var histogram = d3.histogram()
           .value((d) => d[colName])
           .domain(x_scale.domain())
-          //.thresholds(x_scale.ticks(20));
+          .thresholds(x_scale.ticks(10));
 
         var bins = histogram(data);
         console.log(bins);
@@ -57,19 +61,77 @@ d3.csv(URL).then(function(data){
           .data(bins)
           .enter()
           .append("g")
+          .classed("col", true)
           .classed(".col_" + colName, true)
           .attr("transform", (d) => `translate(${x_scale(d.x0)}, 0)`);
 
-        col.selectAll("circle")
+        var circles = col.selectAll("circle")
           .data((d) => d)
           .enter()
           .append("circle")
           .attr("cx", WIDTH / bins.length / 2)
           .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
-          .attr("r", WIDTH / bins.length / 5)
+          .attr("r", 5) // WIDTH / bins.length / 6
           .attr("fill", (d, i) => color_scale(d[colName]));
+
+        CHARTS[colName].append("g")
+              .attr("transform", `translate(0, ${HEIGHT})`)
+              .call(d3.axisBottom(x_scale));
+
+
+        CHARTS[colName].append("g")
+            .call(d3.axisLeft(y_scale));
+
+        CHARTS[colName].append("text")
+              .attr("text-anchor", "middle")
+              .attr("transform", `translate(${WIDTH/2}, ${HEIGHT+margin.bottom + (WIDTH / bins.length / 5)})`)
+              .style("font-size", "10px")
+              .attr("font-family", "sans-serif")
+              .text(colName);
+
+        CHARTS[colName].append("text")
+            .attr("text-anchor", "middle")
+            .style("font-size", "10px")
+            .attr("font-family", "sans-serif")
+            .attr("transform", `translate(${-(3*margin.left/4)}, ${HEIGHT/2})rotate(-90)`)
+            .text("Count");
+
+        brush.on("brush", function(d){
+
+            var extent = d3.event.selection;
+            let x_extent = [extent[0], extent[1]].map(x_scale.invert);
+            console.log(x_extent);
+
+            // "grey" the deselected columns
+            col.classed("deselected", function(d) {
+                return (d.x0 < d3.min(x_extent) || d.x1 > d3.max(x_extent))
+            });
+
+            // end brush
+            brush.on("end", function(){
+                if (d3.event.selection == null){
+                    col.classed("deselected", false);
+                }
+            });
+
+        });
+
+        // take away previous brushes
+        brush.on("start", function(){
+            if (d3.event.sourceEvent.type === "mousedown") {
+                d3.selectAll('.brush').call(brush.move, null);
+            }
+        });
+
+
+        // call brush
+        CHARTS[colName].append("g").classed('brush', true).call(brush);
+
+
     }
 
-    appendChart("pct_sad"); 
+    appendChart("gloom_index");
+    appendChart("valence");
+    appendChart("pct_sad");
 
 });
