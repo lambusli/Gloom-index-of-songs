@@ -18,6 +18,7 @@ SVG.attr("width", 1000)
 const cht_gloom  = SVG.append("g").attr("id", "gloom_index").attr("transform", `translate(${margin.left}, ${margin.top})`);
 const cht_val = SVG.append("g").attr("id", "valence").attr("transform", `translate(${WIDTH + 2 * margin.left}, ${margin.top})`);
 const cht_pctsad = SVG.append("g").attr("id", "pct_sad").attr("transform", `translate(${2 * WIDTH + 3 * margin.left}, ${margin.top})`);
+const barChart = SVG.append("g").attr("id", "avg_gloom").attr("transform", `translate(${margin.left}, ${2 * margin.top + HEIGHT})`)
 
 const CHARTS = {
     "gloom_index": cht_gloom,
@@ -32,9 +33,9 @@ d3.csv(URL).then(function(data){
 
     console.log(data);
 
+
+
     function appendChart(colName) {
-        // create the brush
-        const brush = d3.brushX().extent([[0,0], [WIDTH, HEIGHT]]);
 
         const x_scale = d3.scaleLinear()
           .domain([d3.min(data, (d) => d[colName]), d3.max(data, (d) => d[colName])])
@@ -96,11 +97,15 @@ d3.csv(URL).then(function(data){
             .attr("transform", `translate(${-(3*margin.left/4)}, ${HEIGHT/2})rotate(-90)`)
             .text("Count");
 
+        /*
+        * brushes
+        */
+        let brush = d3.brushX().extent([[0,0], [WIDTH, HEIGHT]]);
+
         brush.on("brush", function(d){
 
-            var extent = d3.event.selection;
+            let extent = d3.event.selection;
             let x_extent = [extent[0], extent[1]].map(x_scale.invert);
-            console.log(x_extent);
 
             // "grey" the deselected columns
             col.classed("deselected", function(d) {
@@ -114,24 +119,48 @@ d3.csv(URL).then(function(data){
                 }
             });
 
+            /*
+            // take away previous brushes
+            brush.on("start", function(){
+                if (d3.event.sourceEvent.type === "mousedown") {
+                    d3.selectAll('.brush').call(brush.move, null);
+                    console.log("restart");
+                }
+            });*/
+
         });
-
-        // take away previous brushes
-        brush.on("start", function(){
-            if (d3.event.sourceEvent.type === "mousedown") {
-                d3.selectAll('.brush').call(brush.move, null);
-            }
-        });
-
-
         // call brush
         CHARTS[colName].append("g").classed('brush', true).call(brush);
+    }
 
+    function appendBarChart() {
+        res = [];
 
+        let nested = d3.nest()
+            .key((d) => d["album_name"])
+            .map(data);
+
+        nested.each(function(val, key) {
+            let avg = 0;
+
+            for (let i = 0; i < val.length; i++){
+                avg += +val[i]["gloom_index"];
+            }
+            avg /= val.length;
+            res.push({"album": key, "avg": avg})
+        });
+
+        
     }
 
     appendChart("gloom_index");
     appendChart("valence");
     appendChart("pct_sad");
+    appendBarChart();
+
+
+
+
+
 
 });
