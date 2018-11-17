@@ -41,12 +41,16 @@ d3.csv(URL).then(function(data){
 
     console.log(data);
 
+    const nested = d3.nest()
+        .key((d) => d["album_name"])
+        .map(data);
 
 
-    function appendChart(colName) {
+    function updateChart(colName, dataset) {
+        d3.select('#' + colName).html("");
 
         const x_scale = d3.scaleLinear()
-          .domain([d3.min(data, (d) => d[colName]), d3.max(data, (d) => d[colName])])
+          .domain([d3.min(dataset, (d) => d[colName]), d3.max(dataset, (d) => d[colName])])
           .range([0, WIDTH]);
 
         const y_scale = d3.scaleLinear()
@@ -61,27 +65,39 @@ d3.csv(URL).then(function(data){
           .domain(x_scale.domain())
           .thresholds(x_scale.ticks(10));
 
-        var bins = histogram(data);
+        console.log(dataset);
+        var bins = histogram(dataset);
         console.log(bins);
 
         y_scale.domain([0, d3.max(bins, (d)=> d.length)]);
 
         var col = CHARTS[colName].selectAll(".col_" + colName) // column of circles
-          .data(bins)
-          .enter()
-          .append("g")
-          .classed("col", true)
-          .classed(".col_" + colName, true)
-          .attr("transform", (d) => `translate(${x_scale(d.x0)}, 0)`);
+            .data(bins)
+
+        col.exit().remove();
+
+        var newCol = col.enter()
+            .append("g")
+            .classed("col", true)
+            .classed(".col_" + colName, true)
+            .attr("transform", (d) => `translate(${x_scale(d.x0)}, 0)`);
+
+        col = col.merge(newCol);
+
 
         var circles = col.selectAll("circle")
-          .data((d) => d)
-          .enter()
-          .append("circle")
-          .attr("cx", WIDTH / bins.length / 2)
-          .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
-          .attr("r", 5) // WIDTH / bins.length / 6
-          .attr("fill", (d, i) => color_scale(d[colName]));
+            .data((d) => d)
+
+        circles.exit().remove();
+
+        var newCircles = circles.enter()
+            .append("circle")
+            .attr("cx", WIDTH / bins.length / 2)
+            .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
+            .attr("r", 5) // WIDTH / bins.length / 6
+            .attr("fill", (d, i) => color_scale(d[colName]));
+
+        circles = circles.merge(newCircles)
 
         CHARTS[colName].append("g")
               .attr("transform", `translate(0, ${HEIGHT})`)
@@ -134,7 +150,7 @@ d3.csv(URL).then(function(data){
         // take away previous brushes
         brush.on("start", function(){
             if (d3.event.sourceEvent.type === "mousedown") {
-                d3.selectAll('.col').classed('deselected', false); 
+                d3.selectAll('.col').classed('deselected', false);
                 d3.selectAll('.brush').call(brush.move, null);
                 console.log("restart");
             }
@@ -144,12 +160,12 @@ d3.csv(URL).then(function(data){
         CHARTS[colName].append("g").classed('brush', true).call(brush);
     }
 
-    function appendBarChart() {
-        res = [];
 
-        let nested = d3.nest()
-            .key((d) => d["album_name"])
-            .map(data);
+
+
+
+    var albumList = []
+    function appendBarChart() {
 
         nested.each(function(val, key) {
             let avg = 0;
@@ -158,34 +174,103 @@ d3.csv(URL).then(function(data){
                 avg += +val[i]["gloom_index"];
             }
             avg /= val.length;
-            res.push({"album": key, "avg": avg})
+            albumList.push({"album": key, "avg": avg})
         });
 
         const x_scale = d3.scaleLinear()
             .rangeRound([0, WIDTH2])
-            .domain([0, d3.max(res, (d)=>+d['avg'])]);
+            .domain([0, d3.max(albumList, (d)=>+d['avg'])]);
 
         const y_scale = d3.scaleBand()
             .range([0, HEIGHT2])
-            .domain(getCol(res, 'album'))
+            .domain(getCol(albumList, 'album'))
             .padding(0.1);
 
-        barChart.selectAll("rect")
-          .data(res)
-          .enter()
-          .append("rect")
-          .attr("x", 0)
-          .attr("y",(d)=> y_scale(d['album']))
-          .attr("width", (d)=> +x_scale(d['avg']))
-          .attr("height", y_scale.bandwidth());
+
+        const bars = barChart.append("g");
+        const labels = barChart.append("g");
+        // x-axis for bar chart
+        const x_axis = barChart.append("g")
+            .attr("transform", `translate(0, ${HEIGHT2})`)
+            .call(d3.axisBottom(x_scale));
+
+        barChart.append("text")
+            .attr("text-anchor", "middle")
+            .attr("transform", `translate(${WIDTH2/2}, ${HEIGHT2 + margin.top + 15})`)
+            .style("font-size", "10px")
+            .style("color", "black")
+            .attr("font-family", "sans-serif")
+            .text("Gloom Index");
+
+
+        bars.selectAll("rect")
+            .data(albumList)
+            .enter()
+            .append("rect")
+            .classed("unchosenAlbum", true)
+            .attr("x", 0)
+            .attr("y",(d)=> y_scale(d['album']))
+            .attr("width", (d)=> +x_scale(d['avg']))
+            .attr("height", y_scale.bandwidth())
+
+        labels.selectAll("text")
+            .data(albumList)
+            .enter()
+            .append("text")
+            .text((d) => d['album'])
+            .style("color", "black")
+            .attr("text-anchor", "left")
+            .style("font-size", "15px")
+            .attr("font-family", "sans-serif")
+            .attr("x", 3)
+            .attr("y", function(d){return y_scale(d['album']) + y_scale.bandwidth()/2 + 3; })
+
     }
 
-    appendChart("gloom_index");
-    appendChart("valence");
-    appendChart("pct_sad");
+    updateChart("gloom_index", data);
+    updateChart("valence", data);
+    updateChart("pct_sad", data);
     appendBarChart();
 
+    /*--------------------
+    ** Select albums and update list
+    --------------------*/
+    var chosenAlbums = [];
+    barChart.selectAll("rect").on('click', function(d) {
+        let thisNode = d3.select(this);
 
+        if (thisNode.classed("unchosenAlbum")){
+            thisNode.classed("unchosenAlbum", false);
+            thisNode.classed("chosenAlbum", true);
+            chosenAlbums.push(d["album"]);
+        }
+        else {
+            thisNode.classed("chosenAlbum", false);
+            thisNode.classed("unchosenAlbum", true);
+            chosenAlbums = chosenAlbums.filter((v, i, arr) => v != d["album"] );
+        }
+
+
+        // update vis
+        if (chosenAlbums.length == 0) {
+            updateChart("gloom_index", data);
+            updateChart("valence", data);
+            updateChart("pct_sad", data);
+        }
+        else {
+            let newData = [];
+
+            for (let i = 0; i < chosenAlbums.length; i++) {
+                newData = newData.concat(nested.get(chosenAlbums[i]));
+            }
+
+            updateChart("gloom_index", newData);
+            updateChart("valence", newData);
+            updateChart("pct_sad", newData);
+        }
+
+
+    });
 
 
 
