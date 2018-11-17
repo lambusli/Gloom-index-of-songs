@@ -3,9 +3,9 @@
 }
 
 .chosenAlbum {
-    fill: #8CE2B9; 
-}
+    /* fill: #8CE2B9; */
+    opacity: 1;
+    stroke: black;
+    stroke-width: 3; 
 
-.unchosenAlbum {
-    fill: lightgray;
 }

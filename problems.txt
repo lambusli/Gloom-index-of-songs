@@ -6,3 +6,5 @@
 
 Confusions:
 1. The bars should be colored based on the average of the metric (except for album metric, obviously)
+
+d3.min(albumList, (d) => +d['avg_' + cce])
