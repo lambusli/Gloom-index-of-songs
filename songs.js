@@ -3,6 +3,8 @@ const SVG = d3.select('#vis');
 
 const WIDTH = 200;
 const HEIGHT = 200;
+const WIDTH2 = 400;
+const HEIGHT2 = 400;
 
 const margin = {
   top: 10,
@@ -18,7 +20,7 @@ SVG.attr("width", 1000)
 const cht_gloom  = SVG.append("g").attr("id", "gloom_index").attr("transform", `translate(${margin.left}, ${margin.top})`);
 const cht_val = SVG.append("g").attr("id", "valence").attr("transform", `translate(${WIDTH + 2 * margin.left}, ${margin.top})`);
 const cht_pctsad = SVG.append("g").attr("id", "pct_sad").attr("transform", `translate(${2 * WIDTH + 3 * margin.left}, ${margin.top})`);
-const barChart = SVG.append("g").attr("id", "avg_gloom").attr("transform", `translate(${margin.left}, ${2 * margin.top + HEIGHT})`)
+const barChart = SVG.append("g").attr("id", "avg_gloom").attr("transform", `translate(${margin.left}, ${5 * margin.top + HEIGHT})`)
 
 const CHARTS = {
     "gloom_index": cht_gloom,
@@ -26,7 +28,13 @@ const CHARTS = {
     "pct_sad": cht_pctsad
 }
 
-cht_gloom.attr("transfrom", `translate(${margin.left}, ${margin.top})`);
+const getCol = function(array, title){ // array = [{}, {}, {},...]
+    let ans = [];
+    array.forEach(function(d, i){
+        ans.push(d[title])
+    });
+    return ans;
+}
 
 d3.csv(URL).then(function(data){
 
@@ -150,7 +158,23 @@ d3.csv(URL).then(function(data){
             res.push({"album": key, "avg": avg})
         });
 
-        
+        const x_scale = d3.scaleLinear()
+            .rangeRound([0, WIDTH2])
+            .domain([0, d3.max(res, (d)=>+d['avg'])]);
+
+        const y_scale = d3.scaleBand()
+            .range([0, HEIGHT2])
+            .domain(getCol(res, 'album'))
+            .padding(0.1);
+
+        barChart.selectAll("rect")
+          .data(res)
+          .enter()
+          .append("rect")
+          .attr("x", 0)
+          .attr("y",(d)=> y_scale(d['album']))
+          .attr("width", (d)=> +x_scale(d['avg']))
+          .attr("height", y_scale.bandwidth());
     }
 
     appendChart("gloom_index");
