@@ -1,8 +1,14 @@
+// choose the initial radio button: Duration
+document.chosenColor.a[0].checked = true;
+
 const URL = "http://www.cs.middlebury.edu/~candrews/classes/cs465-f18/data/gloom_index.csv";
 const SVG = d3.select('#vis');
 
+// size of the histograms (dot chart)
 const WIDTH = 250;
 const HEIGHT = 250;
+
+// size of the bar chart
 const WIDTH2 = 400;
 const HEIGHT2 = 400;
 
@@ -16,18 +22,20 @@ const margin = {
 SVG.attr("width", 1000)
   .attr("height", 1000);
 
-// gloom_index, valence, and pct_sad
+// All charts on the page: gloom_index, valence, pct_sad, and bar chart for avg gloom index
 const cht_gloom  = SVG.append("g").attr("id", "gloom_index").attr("transform", `translate(${margin.left}, ${margin.top})`);
 const cht_val = SVG.append("g").attr("id", "valence").attr("transform", `translate(${WIDTH + 2 * margin.left}, ${margin.top})`);
 const cht_pctsad = SVG.append("g").attr("id", "pct_sad").attr("transform", `translate(${2 * WIDTH + 3 * margin.left}, ${margin.top})`);
-const barChart = SVG.append("g").attr("id", "avg_gloom").attr("transform", `translate(${margin.left}, ${5 * margin.top + HEIGHT})`)
+const barChart = SVG.append("g").attr("id", "avg_gloom").attr("transform", `translate(${margin.left}, ${5 * margin.top + HEIGHT})`);
 
+// enables to dynamically call a chart (see function updateChart())
 const CHARTS = {
     "gloom_index": cht_gloom,
     "valence": cht_val,
     "pct_sad": cht_pctsad
 }
 
+// Equivalent to dataframe$colName in R
 const getCol = function(array, title){ // array = [{}, {}, {},...]
     let ans = [];
     array.forEach(function(d, i){
@@ -38,14 +46,24 @@ const getCol = function(array, title){ // array = [{}, {}, {},...]
 
 d3.csv(URL).then(function(data){
 
+    // nesting by album name later used for arrays albumList and chosenAlbums
     const nested = d3.nest()
         .key((d) => d["album_name"])
         .map(data);
 
+    var albumList = [];  // contains all the album names (already sorted)
+    var chosenAlbums = []; // user-selected albums registered by clicks
 
+    var cce = "word_count"; // cce = "chosen color encoding" (see radio button on web page)
+
+    /*-----------------
+    * update the desired histogram chosen through CHARTS
+    * visualize filtered data (dataset)
+    -----------------*/
     function updateChart(colName, dataset) {
         CHARTS[colName].html("");
 
+        // draw x and y scales according to fixed global data
         let x_scale = d3.scaleLinear()
           .domain([d3.min(data, (d) => +d[colName]), d3.max(data, (d) => +d[colName])])
           .range([0, WIDTH]);
@@ -53,23 +71,33 @@ d3.csv(URL).then(function(data){
         let y_scale = d3.scaleLinear()
           .range([HEIGHT, 0]);
 
+        // colors the circles in histogram dynamically depending on the user's choice of color encoding (see radio button)
         let color_scale = function(varName){
+            // varName = the color encoding (column name) chosen by user
+
+            // if the varNAme is quantitative
             if (varName != "album_name"){
                 return d3.scaleLinear()
                           .range(['#91C4F2', '#020303'])
                           .domain([d3.min(data, (d) => +d[varName]), d3.max(data, (d) => +d[varName])]);
             }
+            // else if nominal (album)
+            else {
+                return d3.scaleOrdinal(d3.schemeCategory10)
+                    .domain(getCol(albumList, "album"));
+            }
 
         }
 
+        // Configure histogram parameters.
         let histogram = d3.histogram()
           .value((d) => +d[colName])
           .domain(x_scale.domain())
           .thresholds(x_scale.ticks(10));
 
+        // Create the data structure needed for histogram
+        // [[], [], [], ..., [], x0:, x1:]
         let bins = histogram(dataset);
-
-        let cce = "duration_ms";
 
         // sorting each bin by CCE (chosen color encoding)
         bins.forEach(function(bin, i){
@@ -82,13 +110,19 @@ d3.csv(URL).then(function(data){
             });
         });
 
+        // d.length is the height of each bar in the histogram
         y_scale.domain([0, d3.max(bins, (d)=> d.length)]);
 
+        // Each bin / column in histogram is a separate <g>
+        // Each column <g> is binded to each element in bins
+        // col --> bins: [[{}, {}], [{}, {}], ...]
+        // <g> --> [{}, {}, {}, ...]
         let col = CHARTS[colName].selectAll(".col_" + colName) // column of circles
             .data(bins)
 
         col.exit().remove();
 
+        // append each g to the right position within the histogram
         let newCol = col.enter()
             .append("g")
             .classed("col", true)
@@ -97,7 +131,7 @@ d3.csv(URL).then(function(data){
 
         col = col.merge(newCol);
 
-
+        // we append circles in each of the columns <g>
         let circles = col.selectAll("circle")
             .data((d) => d)
 
@@ -112,10 +146,10 @@ d3.csv(URL).then(function(data){
 
         circles = circles.merge(newCircles)
 
+        // appending the axes
         CHARTS[colName].append("g")
               .attr("transform", `translate(0, ${HEIGHT})`)
               .call(d3.axisBottom(x_scale));
-
 
         CHARTS[colName].append("g")
             .call(d3.axisLeft(y_scale));
@@ -135,13 +169,17 @@ d3.csv(URL).then(function(data){
             .text("Count");
 
         /*
-        * brushes
+        ** brushes
         */
+
+        // horizontal brush
         let brush = d3.brushX().extent([[0,0], [WIDTH, HEIGHT]]);
 
-
+        // highlight the selected circles
         brush.on("brush", function(d){
             let extent = d3.event.selection;
+
+            // Unclear purpose but worked?: prevent null extent from entering code (due to single selection)
             if (extent != null){
                 let x_extent = [extent[0], extent[1]].map(x_scale.invert);
 
@@ -159,7 +197,6 @@ d3.csv(URL).then(function(data){
             }
         });
 
-
         // take away previous brushes
         brush.on("start", function(){
             if (d3.event.sourceEvent.type === "mousedown") {
@@ -172,9 +209,12 @@ d3.csv(URL).then(function(data){
         CHARTS[colName].append("g").classed('brush', true).call(brush);
     }
 
-    var albumList = []
+    /*-------------
+    * append the bar chart
+    -------------*/
     function appendBarChart() {
 
+        // from the nested list by album, get each album name and caluclate its average gloom index (avg)
         nested.each(function(val, key) {
             let avg = 0;
 
@@ -185,7 +225,7 @@ d3.csv(URL).then(function(data){
             albumList.push({"album": key, "avg": avg, "rlsDate": val[0]["album_release_year"]});
         });
 
-
+        // draw scales
         let x_scale = d3.scaleLinear()
             .rangeRound([0, WIDTH2])
             .domain([0, d3.max(albumList, (d)=>+d['avg'])]);
@@ -195,14 +235,19 @@ d3.csv(URL).then(function(data){
             .domain(getCol(albumList, 'album'))
             .padding(0.1);
 
+        // color scale for bars
 
+
+        // append <g> for bars and labels
         let bars = barChart.append("g");
         let labels = barChart.append("g");
+
         // x-axis for bar chart
         let x_axis = barChart.append("g")
             .attr("transform", `translate(0, ${HEIGHT2})`)
             .call(d3.axisBottom(x_scale));
 
+        // x-axis label
         barChart.append("text")
             .attr("text-anchor", "middle")
             .attr("transform", `translate(${WIDTH2/2}, ${HEIGHT2 + margin.top + 15})`)
@@ -211,7 +256,7 @@ d3.csv(URL).then(function(data){
             .attr("font-family", "sans-serif")
             .text("Gloom Index");
 
-
+        // appending bars for bar chart
         bars.selectAll("rect")
             .data(albumList)
             .enter()
@@ -222,67 +267,97 @@ d3.csv(URL).then(function(data){
             .attr("width", (d)=> +x_scale(d['avg']))
             .attr("height", y_scale.bandwidth())
 
-        labels.selectAll("text")
+        // append album names on each bar
+        labels.selectAll(".labels")
             .data(albumList)
             .enter()
             .append("text")
+            .classed("labels", true)
             .text((d) => d['album'])
             .style("color", "black")
             .attr("text-anchor", "left")
             .style("font-size", "15px")
             .attr("font-family", "sans-serif")
             .attr("x", 3)
-            .attr("y", function(d){return y_scale(d['album']) + y_scale.bandwidth()/2 + 3; })
+            .attr("y", function(d){return y_scale(d['album']) + y_scale.bandwidth()/2 + 3; });
+
+        // append the average gloom index at the end of each bar
+        labels.selectAll(".gloomavgs")
+            .data(albumList)
+            .enter()
+            .append("text")
+            .classed("gloomavgs", true)
+            .text((d) => d['avg'].toFixed(2))
+            .style("color", "black")
+            .attr("text-anchor", "left")
+            .style("font-size", "15px")
+            .attr("font-family", "sans-serif")
+            .attr("x", (d)=> x_scale(d['avg']) + 7)
+            .attr("y", (d) => y_scale(d['album']) + y_scale.bandwidth() / 2 + 3);
 
     }
 
-    updateChart("gloom_index", data);
-    updateChart("valence", data);
-    updateChart("pct_sad", data);
-    appendBarChart();
+    /*-------------
+    * update all the histograms
+    --------------*/
+    function updateSmallVis() {
 
-    /*--------------------
-    ** Select albums and update list
-    --------------------*/
-
-    var chosenAlbums = []
-    barChart.selectAll("rect").on('click', function(d) {
-        // let chosenAlbums = [].concat(albumList);
-
-        let thisNode = d3.select(this);
-
-        if (thisNode.classed("unchosenAlbum")){
-            thisNode.classed("unchosenAlbum", false);
-            thisNode.classed("chosenAlbum", true);
-            chosenAlbums.push(d["album"]);
-        }
-        else {
-            thisNode.classed("chosenAlbum", false);
-            thisNode.classed("unchosenAlbum", true);
-            chosenAlbums = chosenAlbums.filter((v, i, arr) => v != d["album"] );
-        }
-
-        // update vis
+        // if nothing is chosen in bar chart
         if (chosenAlbums.length == 0) {
             updateChart("gloom_index", data);
             updateChart("valence", data);
             updateChart("pct_sad", data);
         }
+
+        // else if something is chosen
         else {
             let newData = [];
 
             for (let i = 0; i < chosenAlbums.length; i++) {
-                newData = newData.concat(nested.get(chosenAlbums[i]));
+                newData = newData.concat(nested.get(chosenAlbums[i]["album"]));
             }
 
             updateChart("gloom_index", newData);
             updateChart("valence", newData);
             updateChart("pct_sad", newData);
         }
+    }
+
+    /*-------------
+    * Executable: append all charts initially
+    --------------*/
+    appendBarChart();
+    updateSmallVis();
 
 
+    /*--------------------
+    * Event listeners: Select albums and update list
+    --------------------*/
+    barChart.selectAll("rect").on('click', function(d) {
+        let thisNode = d3.select(this);
+
+        // if this album is not chosen, select
+        if (thisNode.classed("unchosenAlbum")){
+            thisNode.classed("unchosenAlbum", false);
+            thisNode.classed("chosenAlbum", true);
+            chosenAlbums.push(d);
+            console.log(chosenAlbums);
+        }
+        // else if album is chosen, deselect
+        else {
+            thisNode.classed("chosenAlbum", false);
+            thisNode.classed("unchosenAlbum", true);
+            chosenAlbums = chosenAlbums.filter((v, i, arr) => v["album"] != d["album"] ); // !!!!!
+        }
+
+        // update vis
+        updateSmallVis();
     });
 
-
+    // event handler for radio button
+    d3.select("#colorMenu").selectAll(".radio").on("change", function(d){
+        cce = d3.select(this).property("value");
+        updateSmallVis();
+    });
 
 });
