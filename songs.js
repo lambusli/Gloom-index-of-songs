@@ -1,8 +1,8 @@
 const URL = "http://www.cs.middlebury.edu/~candrews/classes/cs465-f18/data/gloom_index.csv";
 const SVG = d3.select('#vis');
 
-const WIDTH = 200;
-const HEIGHT = 200;
+const WIDTH = 250;
+const HEIGHT = 250;
 const WIDTH2 = 400;
 const HEIGHT2 = 400;
 
@@ -38,45 +38,58 @@ const getCol = function(array, title){ // array = [{}, {}, {},...]
 
 d3.csv(URL).then(function(data){
 
-
-    console.log(data);
-
     const nested = d3.nest()
         .key((d) => d["album_name"])
         .map(data);
 
 
     function updateChart(colName, dataset) {
-        d3.select('#' + colName).html("");
+        CHARTS[colName].html("");
 
-        const x_scale = d3.scaleLinear()
-          .domain([d3.min(dataset, (d) => d[colName]), d3.max(dataset, (d) => d[colName])])
+        let x_scale = d3.scaleLinear()
+          .domain([d3.min(data, (d) => +d[colName]), d3.max(data, (d) => +d[colName])])
           .range([0, WIDTH]);
 
-        const y_scale = d3.scaleLinear()
+        let y_scale = d3.scaleLinear()
           .range([HEIGHT, 0]);
 
-        const color_scale = d3.scaleLinear()
-          .range(['#91C4F2', '#020303'])
-          .domain([d3.min(data, (d) => d[colName]), d3.max(data, (d) => d[colName])]);
+        let color_scale = function(varName){
+            if (varName != "album_name"){
+                return d3.scaleLinear()
+                          .range(['#91C4F2', '#020303'])
+                          .domain([d3.min(data, (d) => +d[varName]), d3.max(data, (d) => +d[varName])]);
+            }
 
-        var histogram = d3.histogram()
-          .value((d) => d[colName])
+        }
+
+        let histogram = d3.histogram()
+          .value((d) => +d[colName])
           .domain(x_scale.domain())
           .thresholds(x_scale.ticks(10));
 
-        console.log(dataset);
-        var bins = histogram(dataset);
-        console.log(bins);
+        let bins = histogram(dataset);
+
+        let cce = "duration_ms";
+
+        // sorting each bin by CCE (chosen color encoding)
+        bins.forEach(function(bin, i){
+            bin.sort(function(a, b){
+                let keyA = +a[cce];
+                let keyB = +b[cce];
+                if (keyA < keyB) return -1;
+                if (keyA > keyB) return 1;
+                return 0;
+            });
+        });
 
         y_scale.domain([0, d3.max(bins, (d)=> d.length)]);
 
-        var col = CHARTS[colName].selectAll(".col_" + colName) // column of circles
+        let col = CHARTS[colName].selectAll(".col_" + colName) // column of circles
             .data(bins)
 
         col.exit().remove();
 
-        var newCol = col.enter()
+        let newCol = col.enter()
             .append("g")
             .classed("col", true)
             .classed(".col_" + colName, true)
@@ -85,17 +98,17 @@ d3.csv(URL).then(function(data){
         col = col.merge(newCol);
 
 
-        var circles = col.selectAll("circle")
+        let circles = col.selectAll("circle")
             .data((d) => d)
 
         circles.exit().remove();
 
-        var newCircles = circles.enter()
+        let newCircles = circles.enter()
             .append("circle")
             .attr("cx", WIDTH / bins.length / 2)
             .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
             .attr("r", 5) // WIDTH / bins.length / 6
-            .attr("fill", (d, i) => color_scale(d[colName]));
+            .attr("fill", (d, i) => color_scale(cce)(d[cce]));
 
         circles = circles.merge(newCircles)
 
@@ -152,17 +165,12 @@ d3.csv(URL).then(function(data){
             if (d3.event.sourceEvent.type === "mousedown") {
                 d3.selectAll('.col').classed('deselected', false);
                 d3.selectAll('.brush').call(brush.move, null);
-                console.log("restart");
             }
         });
 
         // call brush
         CHARTS[colName].append("g").classed('brush', true).call(brush);
     }
-
-
-
-
 
     var albumList = []
     function appendBarChart() {
@@ -174,23 +182,24 @@ d3.csv(URL).then(function(data){
                 avg += +val[i]["gloom_index"];
             }
             avg /= val.length;
-            albumList.push({"album": key, "avg": avg})
+            albumList.push({"album": key, "avg": avg, "rlsDate": val[0]["album_release_year"]});
         });
 
-        const x_scale = d3.scaleLinear()
+
+        let x_scale = d3.scaleLinear()
             .rangeRound([0, WIDTH2])
             .domain([0, d3.max(albumList, (d)=>+d['avg'])]);
 
-        const y_scale = d3.scaleBand()
+        let y_scale = d3.scaleBand()
             .range([0, HEIGHT2])
             .domain(getCol(albumList, 'album'))
             .padding(0.1);
 
 
-        const bars = barChart.append("g");
-        const labels = barChart.append("g");
+        let bars = barChart.append("g");
+        let labels = barChart.append("g");
         // x-axis for bar chart
-        const x_axis = barChart.append("g")
+        let x_axis = barChart.append("g")
             .attr("transform", `translate(0, ${HEIGHT2})`)
             .call(d3.axisBottom(x_scale));
 
@@ -235,8 +244,11 @@ d3.csv(URL).then(function(data){
     /*--------------------
     ** Select albums and update list
     --------------------*/
-    var chosenAlbums = [];
+
+    var chosenAlbums = []
     barChart.selectAll("rect").on('click', function(d) {
+        // let chosenAlbums = [].concat(albumList);
+
         let thisNode = d3.select(this);
 
         if (thisNode.classed("unchosenAlbum")){
@@ -249,7 +261,6 @@ d3.csv(URL).then(function(data){
             thisNode.classed("unchosenAlbum", true);
             chosenAlbums = chosenAlbums.filter((v, i, arr) => v != d["album"] );
         }
-
 
         // update vis
         if (chosenAlbums.length == 0) {
@@ -271,7 +282,6 @@ d3.csv(URL).then(function(data){
 
 
     });
-
 
 
 
