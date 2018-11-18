@@ -2,9 +2,3 @@
 2. pct_sad the circles of first column overlap each other.
 
 3. Different color for different encoding, rather than all blue
-
-
-Confusions:
-1. The bars should be colored based on the average of the metric (except for album metric, obviously)
-
-d3.min(albumList, (d) => +d['avg_' + cce])

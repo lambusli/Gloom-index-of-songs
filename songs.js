@@ -174,7 +174,7 @@ d3.csv(URL).then(function(data){
                 return color_scale(d[cce]);
             });
 
-        circles = circles.merge(newCircles)
+        circles = circles.merge(newCircles);
 
         // appending the axes
         CHARTS[colName].append("g")
@@ -236,7 +236,43 @@ d3.csv(URL).then(function(data){
         });
 
         // call brush
-        CHARTS[colName].append("g").classed('brush', true).call(brush);
+        let brush_g = CHARTS[colName].append("g").classed('brush', true).call(brush);
+
+        // What trick is this?
+        brush_g.selectAll(".overlay")
+            .on("mousemove", function(d){
+                const parent = this.parentElement;
+                console.log(d3.event);
+                const coordinates = [d3.event.pageX, d3.event.pageY];
+
+                // remove the overlay
+                parent.removeChild(this);
+                // look at which element is under the overlay at this point
+                const next_layer = document.elementFromPoint(coordinates[0], coordinates[1]);
+                console.log(next_layer);
+                // put the overlay back
+                parent.appendChild(this);
+
+                // if the next layer down is a circle, show the tooltip
+                if (next_layer.tagName === "circle"){
+                    const point = d3.select(next_layer);
+                    const data = point.data()[0];
+                    const info = d3.select("#tooltip");
+
+                    info.style("left", (coordinates[0] + 5 )+ "px")
+                        .style("top", (coordinates[1] + 5 )+ "px")
+                        .classed("hidden", false);
+
+                    info.select("#songname").text(data["track_name"]);
+                    info.select("#album").text(data["album_name"]);
+
+                }else{
+                    // not over a circle, hide the tooltip
+                    d3.select("#tooltip")
+                        .classed("hidden", true);
+                }
+            });
+
     }
 
     /*-------------

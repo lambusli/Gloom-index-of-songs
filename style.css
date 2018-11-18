@@ -3,9 +3,29 @@
 }
 
 .chosenAlbum {
-    /* fill: #8CE2B9; */
     opacity: 1;
     stroke: black;
-    stroke-width: 3; 
+    stroke-width: 3;
 
+}
+
+#tooltip{
+    position:absolute;
+    width:150px;
+    height:auto;
+    padding:10px;
+    background-color: white;
+    border-radius:10px;
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.4);
+    pointer-events: none;
+}
+
+#tooltip p{
+    margin:0;
+    font-family: sans-serif;
+    font-size:12px;
+}
+
+.hidden {
+    display:none;
 }
