@@ -6,7 +6,10 @@
     opacity: 1;
     stroke: black;
     stroke-width: 3;
+}
 
+.unchosenAlbum:hover, .chosenAlbum:hover{
+    cursor: pointer; 
 }
 
 #tooltip{

@@ -1,12 +1,27 @@
 // choose the initial radio button: Duration
 document.chosenColor.a[0].checked = true;
 
+colorDict = {
+    "duration_ms": {
+        "dotchart": "#2794E8",
+        "barchart": "rgb(255, 151, 125)"
+    },
+    "word_count":{
+        "dotchart": "#3A7D44",
+        "barchart": "#e36b66"
+    },
+    "lyrical_density":{
+        "dotchart": "#bab020",
+        "barchart": "#d62237"
+    }
+}
+
 const URL = "http://www.cs.middlebury.edu/~candrews/classes/cs465-f18/data/gloom_index.csv";
 const SVG = d3.select('#vis');
 
 // size of the histograms (dot chart)
-const WIDTH = 250;
-const HEIGHT = 250;
+const WIDTH = 400;
+const HEIGHT = 400;
 
 // size of the bar chart
 const WIDTH2 = 400;
@@ -19,8 +34,8 @@ const margin = {
   bottom: 20
 }
 
-SVG.attr("width", 1000)
-  .attr("height", 1000);
+SVG.attr("width", 1500)
+  .attr("height", 1500);
 
 // All charts on the page: gloom_index, valence, pct_sad, and bar chart for avg gloom index
 const cht_gloom  = SVG.append("g").attr("id", "gloom_index").attr("transform", `translate(${margin.left}, ${margin.top})`);
@@ -67,6 +82,7 @@ d3.csv(URL).then(function(data){
         }
         avg /= val.length;
         avgDur /= val.length;
+        console.log(avgDur);
         avgWC /= val.length;
         avgDen /= val.length;
         albumList.push({
@@ -83,7 +99,7 @@ d3.csv(URL).then(function(data){
         // cheat method to make the bar and circle colors align
         .domain(getCol(albumList, "album").concat(['LOL']));
 
-    var cce = "word_count"; // cce = "chosen color encoding" (see radio button on web page)
+    var cce = "duration_ms"; // cce = "chosen color encoding" (see radio button on web page)
 
     /*-----------------
     * update the desired histogram chosen through CHARTS
@@ -106,7 +122,7 @@ d3.csv(URL).then(function(data){
         // if the varNAme is quantitative
         if (cce != "album_name"){
             color_scale = d3.scaleLinear()
-                      .range(['white', '#020303'])
+                      .range(['lightgray', colorDict[cce]["dotchart"]])
                       .domain([0, d3.max(data, (d) => +d[cce])]);
         }
         // else if nominal (album)
@@ -120,7 +136,7 @@ d3.csv(URL).then(function(data){
         let histogram = d3.histogram()
           .value((d) => +d[colName])
           .domain(x_scale.domain())
-          .thresholds(x_scale.ticks(10));
+          .thresholds(x_scale.ticks(30));
 
         // Create the data structure needed for histogram
         // [[], [], [], ..., [], x0:, x1:]
@@ -296,7 +312,7 @@ d3.csv(URL).then(function(data){
 
         if (cce != 'album_name'){
             color_scale = d3.scaleLinear()
-                .range(["white", "#ff977d"])
+                .range(["lightgray", colorDict[cce]["barchart"]])
                 .domain([0, d3.max(albumList, (d) => +d['avg_' + cce])]);
         }
         else {
