@@ -184,7 +184,7 @@ d3.csv(URL).then(function(data){
             .append("circle")
             .attr("cx", WIDTH / bins.length / 2)
             .attr("cy", (d, i) => y_scale(i + 1) + WIDTH / bins.length / 5)
-            .attr("r", 5) // WIDTH / bins.length / 6
+            .attr("r", (d) => WIDTH / bins.length / 1.8)
             .attr("fill", function(d, i){
                 // console.log(d[cce] + color_scale(d[cce]));
                 return color_scale(d[cce]);
